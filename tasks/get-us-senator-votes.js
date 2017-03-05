@@ -1,8 +1,11 @@
 var cheerio = require('cheerio');
-var firebase = require('firebase');
+// var firebase = require('firebase');
 var request = require('request');
-var config = require('.././config');
+// var config = require('.././config');
 var moment = require('moment-timezone');
+var sqlite3 = require('sqlite3');
+var file = 'democracy.db';
+var db = new sqlite3.Database(file, sqlite3.OPEN_READWRITE);
 
 var motions = {
     '115_1_00054': 'https://www.senate.gov/legislative/LIS/roll_call_votes/vote1151/vote_115_1_00054.xml', // Elisabeth DeVos
@@ -28,8 +31,8 @@ function voteToInt (str) {
 
 function getUsSenatorVotes() {
     // Initialize Firebase
-    firebase.initializeApp(config);
-    var dbRef = firebase.database().ref();
+    // firebase.initializeApp(config);
+    // var dbRef = firebase.database().ref();
     
     Object.keys(motions).forEach(key => {
         // Get data from senate.gov
@@ -40,7 +43,7 @@ function getUsSenatorVotes() {
             }
 
             // Load xml into cheerio
-            var votes = {};
+            var votes = [];
             var $ = cheerio.load(body, { xmlMode: true });
 
             // Extract vote text
@@ -63,18 +66,49 @@ function getUsSenatorVotes() {
                 id = $(this).find('lis_member_id').first().text();
                 vote = voteToInt($(this).find('vote_cast').first().text());
                 
-                votes[id] = vote;
+                votes.push({ id, vote });
+            });
+
+            db.serialize(() => {
+                var yeas = votes.reduce((a, c) => a + (c.vote === 1 ? 1 : 0), 0);
+
+                // Government bodies - populate USA Senate and Divisions (States)
+                db.run(`INSERT INTO tally (bodyId, name, date, pass, tieBreaker, tieBreakerVote, tieBreakerId) 
+                    VALUES ($bodyId, $name, $date, $pass, $tieBreaker, $tieBreakerVote, $tieBreakerId)`,
+                    { 
+                        $bodyId: 'usa-senate',
+                        $name: text,
+                        $date: date,
+                        $pass: tieBreaker ? (tieBreaker.vote === 1 ? true : false) : (yeas > Math.round(votes.length / 2)),
+                        $tieBreaker: tieBreaker ? tieBreaker.by : null,
+                        $tieBreakerVote: tieBreaker ? tieBreaker.vote : null,
+                        $tieBreakerId: null,
+                    },
+                    function () {
+                        var tallyId = this.lastID;
+                        var stmt = db.prepare(
+                            `INSERT INTO vote (tallyId, politicianId, vote)
+                            SELECT $tallyId, p.id, $vote
+                            FROM politician p INNER JOIN membership m ON p.id = m.politicianId
+                            WHERE m.refId = $refId`
+                        );
+                        votes.forEach(vote => {
+                            stmt.run({ $tallyId: tallyId, $refId: vote.id, $vote: vote.vote });
+                        });
+                        stmt.finalize();
+                    }
+                );
             });
 
             // Update database
-            var updates = {};
-            updates[`/vote/usa-senate/${key}`] = {
-                date: date,
-                text: text,
-                results: votes,
-                tieBreaker: tieBreaker,
-            };
-            dbRef.update(updates);
+            // var updates = {};
+            // updates[`/vote/usa-senate/${key}`] = {
+            //     date: date,
+            //     text: text,
+            //     results: votes,
+            //     tieBreaker: tieBreaker,
+            // };
+            // dbRef.update(updates);
         });
     });
 }

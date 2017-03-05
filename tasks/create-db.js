@@ -65,20 +65,34 @@ function createDb () {
         db.run(
             `CREATE TABLE tally (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                bodyId INTEGER,
+                bodyId TEXT,
                 name TEXT,
+                date TEXT,
                 pass INTEGER,
                 tiebreaker TEXT,
+                tiebreakerId INTEGER,
                 tiebreakerVote INTEGER,
-                FOREIGN KEY(bodyId) REFERENCES body(id)
+                FOREIGN KEY(bodyId) REFERENCES body(id),
+                FOREIGN KEY(tiebreakerId) REFERENCES politician(id)
             )`
         );
         db.run(
             `CREATE TABLE vote (
                 tallyId INTEGER,
                 politicianId INTEGER,
-                vote INTEGER
+                vote INTEGER,
+                UNIQUE (politicianId, tallyId) ON CONFLICT REPLACE,
+                FOREIGN KEY(tallyId) REFERENCES tally(id),
+                FOREIGN KEY(politicianId) REFERENCES politician(id)
             )`
+        );
+        db.run(
+            `CREATE TABLE data_version (
+                versionNumber INTEGER
+            )`
+        );
+        db.run(
+            `INSERT INTO data_version (versionNumber) VALUES (0)`
         );
     });
 
