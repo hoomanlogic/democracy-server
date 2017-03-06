@@ -49,21 +49,17 @@ function createDb () {
             )`
         );
         db.run(
-            `CREATE TABLE issue (
-                issueId TEXT PRIMARY KEY,
+            `CREATE TABLE value (
+                id TEXT PRIMARY KEY,
                 icon TEXT,
                 name TEXT
             )`
         );
+        db.run(`INSERT INTO value (id, icon, name) VALUES ('education', '//www.freeiconspng.com/uploads/education-png-32.png', 'Education')`);
+		db.run(`INSERT INTO value (id, icon, name) VALUES ('environment', '//www.onegov.nsw.gov.au/New/persistent/listings_page/environment.png', 'Environment')`);
+		db.run(`INSERT INTO value (id, icon, name) VALUES ('equality', '//pbs.twimg.com/profile_images/565486644740911104/UQPE6tgy_reasonably_small.png', 'Equality')`);
         db.run(
-            `CREATE TABLE issue_activity (
-                issueId TEXT PRIMARY KEY,
-                icon TEXT,
-                name TEXT
-            )`
-        );
-        db.run(
-            `CREATE TABLE tally (
+            `CREATE TABLE motion (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 bodyId TEXT,
                 name TEXT,
@@ -77,12 +73,19 @@ function createDb () {
             )`
         );
         db.run(
+            `CREATE TABLE value_activity (
+                valueId TEXT PRIMARY KEY,
+                motionId INTEGER,
+                FOREIGN KEY(motionId) REFERENCES motion(id)
+            )`
+        );
+        db.run(
             `CREATE TABLE vote (
-                tallyId INTEGER,
+                motionId INTEGER,
                 politicianId INTEGER,
                 vote INTEGER,
-                UNIQUE (politicianId, tallyId) ON CONFLICT REPLACE,
-                FOREIGN KEY(tallyId) REFERENCES tally(id),
+                UNIQUE (politicianId, motionId) ON CONFLICT REPLACE,
+                FOREIGN KEY(motionId) REFERENCES motion(id),
                 FOREIGN KEY(politicianId) REFERENCES politician(id)
             )`
         );

@@ -73,7 +73,7 @@ function getUsSenatorVotes() {
                 var yeas = votes.reduce((a, c) => a + (c.vote === 1 ? 1 : 0), 0);
 
                 // Government bodies - populate USA Senate and Divisions (States)
-                db.run(`INSERT INTO tally (bodyId, name, date, pass, tieBreaker, tieBreakerVote, tieBreakerId) 
+                db.run(`INSERT INTO motion (bodyId, name, date, pass, tieBreaker, tieBreakerVote, tieBreakerId) 
                     VALUES ($bodyId, $name, $date, $pass, $tieBreaker, $tieBreakerVote, $tieBreakerId)`,
                     { 
                         $bodyId: 'usa-senate',
@@ -85,15 +85,15 @@ function getUsSenatorVotes() {
                         $tieBreakerId: null,
                     },
                     function () {
-                        var tallyId = this.lastID;
+                        var motionId = this.lastID;
                         var stmt = db.prepare(
-                            `INSERT INTO vote (tallyId, politicianId, vote)
-                            SELECT $tallyId, p.id, $vote
+                            `INSERT INTO vote (motionId, politicianId, vote)
+                            SELECT $motionId, p.id, $vote
                             FROM politician p INNER JOIN membership m ON p.id = m.politicianId
                             WHERE m.refId = $refId`
                         );
                         votes.forEach(vote => {
-                            stmt.run({ $tallyId: tallyId, $refId: vote.id, $vote: vote.vote });
+                            stmt.run({ $motionId: motionId, $refId: vote.id, $vote: vote.vote });
                         });
                         stmt.finalize();
                     }
